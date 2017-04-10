@@ -1,6 +1,6 @@
 CC = gcc
 OPTS = -O2 -Wall
-OBJS = main.o compiler.o
+OBJS = main.o compiler.o expression.o
 
 LIBDIR = $(HOME)/p1/lib
 INCDIR = $(HOME)/p1/include
@@ -13,4 +13,6 @@ main.o: main.c
 	$(CC) main.c -I $(INCDIR) -c $(OPTS) 
 compiler.o: compiler.c
 	$(CC) compiler.c -I $(INCDIR) -c $(OPTS) 
+expression.o: expression.c
+	$(CC) expression.c -I $(INCDIR) -c $(OPTS)
 
