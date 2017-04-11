@@ -4,7 +4,18 @@
 
 #include "define.h"
 
+#define OutValue printf("the value is %d\n", tok.value)
+
 extern TOKEN tok;
+
+typedef struct Node
+{
+	int op;
+	char l[255];
+	char r[255];
+	int regi;
+}Node;
+
 
 int f(int ch){
   switch(ch){
@@ -45,45 +56,66 @@ void expression(void){
   do{
     getsym();
     term();
-  }while(tok.attr == SYMBOL && (tok.value == PLUS || tok.value == MINUS));
+
+	if(tok.attr == SYMBOL && tok.value == PLUS){
+			DebugOut("PLUS!");
+	}
+	else if(tok.attr == SYMBOL && tok.value == MINUS){
+			DebugOut("MINUS!");
+	}
+	else{
+			break;
+	}
+  }while(1);
   DebugOut("expr end");
 }
 
 void term(void){
 
-  do{
-    DebugOut2("value is %d\n", tok.value);
-    factor();
-    getsym();
-  }while( (tok.attr == RWORD && tok.value == DIV) || 
-          (tok.attr == SYMBOL&& tok.value == TIMES) );
+		do{
+				DebugOut2("value is %d\n", tok.value);
+				factor();
+				getsym();
+				if(tok.attr == RWORD && tok.value == DIV){
+						//dosomething
+
+						getsym();
+				}
+				else if(tok.attr == SYMBOL&& tok.value == TIMES) {
+						//dosomething
+
+						DebugOut("times come");
+						getsym();
+				}
+				else{
+						break;
+				}
+		}while(1);
 }
 
 void factor(void){
+		  DebugOut2("factor begin and value is %s\n", tok.charvalue);
+	
+
   // 単項演算子-の時
   if(tok.attr == SYMBOL && tok.value == MINUS){
+		  getsym();
   }
 
-  getsym();
 
-  switch(tok.attr){
-    case IDENTIFIER:
-      break;
-    case NUMBER:
-      break;
-    case SYMBOL:
-      if(tok.value != LPAREN)
-        fprintf(stderr, "illegal bunpou\n"), exit(1);
-
-      getsym();
+  if(tok.attr == IDENTIFIER){
+		  DebugOut2("%s\n", tok.charvalue);
+  }
+  else if(tok.attr == NUMBER){
+		  DebugOut2("number come and the value is %d\n", tok.value);
+  }
+  else if(tok.attr == SYMBOL && tok.value == LPAREN){
+//      getsym();
       expression();
 
-      getsym();
       if(tok.value != RPAREN)
         fprintf(stderr, "illegal bunpou\n"), exit(1);
-
-      break;
   }
 
-  getsym();
+//  getsym();
 }

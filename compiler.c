@@ -29,7 +29,9 @@ void write(int _register_num){
   
   do{
     getsym();
+  DebugOut2("write %s\n", tok.charvalue, tok.attr);
     Output2(" r%d", tok.value);
+	getsym();
   }while(tok.value == COMMA);
 
   // 改行
@@ -105,23 +107,58 @@ void statement(void) {
 
 	if(tok.attr == RWORD){
 		if (tok.value == BEGIN) {
+			DebugOut("scope begin");
 
 			do {
 				getsym();
 				statement();
-				getsym();
+//				getsym();
 			} while (tok.value == SEMICOLON);
 
+			printf("\t%c\n", tok.value);
 			if (tok.value != END)
 				error("must need end");
 
-			printf("end\n");
+			DebugOut2("scope end and current value is %s\n", tok.charvalue);
 		}
 		else if (tok.value == IF) {
+				DebugOut("if begin");
+//				getsym();
+				condition();
+				if(tok.attr != RWORD || tok.value != THEN)
+				{
+						DebugOut2("then attr and value is %d %s\n", tok.attr, tok.charvalue);
+						error("if neccesary then");
+				}
 
+				getsym();
+				statement();
+
+				if(tok.attr == RWORD && tok.value == ELSE){
+						DebugOut("else begin");
+						getsym();
+						statement();
+						DebugOut("else end");
+				}
+				DebugOut("if end");
 		}
 		else if (tok.value == WHILE) {
+				DebugOut("while begin");
+//				getsym();
+				condition();
+				if(tok.attr != RWORD || tok.value != DO)
+						error("while neccesary do");
 
+				DebugOut("DO!");
+				getsym();
+				statement();
+				getsym();
+
+				DebugOut("while end");
+		}
+		else if(tok.value == WRITE){
+				DebugOut("Wow! Writing!");
+				write(1);
 		}
 	}
 	else{
@@ -148,7 +185,7 @@ void statement(void) {
         //"pop R0"とか
         //からの"store 変数番地"
 
-        getsym();
+//        getsym();
 			}
 		}
 
@@ -284,4 +321,32 @@ void outblock(void) {
 		DebugOut("statement begin");
 		statement();
 	}
+}
+
+void condition(void){
+		DebugOut("condition start");
+	expression();	
+
+	if(tok.attr != SYMBOL)
+			error("illegal bunpou");
+	
+	switch(tok.value){
+		case EQL:
+			break;
+		case NOTEQL:
+			break;
+		case LESSTHAN:
+			break;
+		case LESSEQL:
+			break;
+		case GRTRTHAN:
+			break;
+		case GRTREQL:
+			DebugOut("Grater equal come");
+			break;
+	}
+//	getsym();
+	expression();
+
+	DebugOut("condition end");
 }
