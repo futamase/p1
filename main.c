@@ -2,7 +2,6 @@
 #include <strings.h>
 #include <getsym.h>
 
-
 TOKEN tok;
 FILE *infile, *outfile;
 

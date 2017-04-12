@@ -42,6 +42,8 @@ void write(int _register_num){
 
 void compiler(void) {
 	init_getsym();
+	init_nodes();
+
   register_num = -1;
 
 	// programを読み込み
