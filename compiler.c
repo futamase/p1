@@ -27,19 +27,40 @@ void statement(void);
 //int expression(void);
 
 void write(int _register_num){
-  Output("writed\t");
-  
+  int i;
+  fprintf(stderr, "hoge\n");
   do{
+        DebugOut2("%s ", tok.charvalue);
     getsym();
-  DebugOut2("write %s\n", tok.charvalue, tok.attr);
-    Output2(" r%d", tok.value);
-	getsym();
-  }while(tok.value == COMMA);
+        DebugOut2("%s ", tok.charvalue);
+    
+    for(i = 0; i < MAXADDR; i++){
+      if(strcmp(tok.charvalue, vars[i].name) == 0){
+  fprintf(stderr, "hoge %s\n", vars[i].name);
+        Output2("load\tr0,%d\n", vars[i].addr);
+  fprintf(stderr, "hoge %s\n", vars[i].name);
+        Output("writed r0");
+  fprintf(stderr, "hoge %s\n", vars[i].name);
+        break;
+      }
+    }
 
-  // 改行
-  Output("\n");
-  Output2("load\t r%d", register_num+1);
-  Output2("writec\t r%d", register_num+1);
+//    Output("writed\t");
+//    DebugOut2("write %s\n", tok.charvalue, tok.attr);
+//    Output2(" r%d", tok.value);
+    getsym();
+    if(tok.value == COMMA){
+      Output("loadi\tr0, ' '");
+      Output("writec\tr0");
+      continue;
+    }
+    else
+      break;
+  }while(1);//(tok.value == COMMA);
+  DebugOut("hoge");
+
+  Output("loadi\t r0, '\\n'");
+  Output("writec\tr0");
 }
 
 void compiler(void) {
@@ -162,7 +183,6 @@ void statement(void) {
 				DebugOut("while end");
 		}
 		else if(tok.value == WRITE){
-				DebugOut("Wow! Writing!");
 				write(1);
 		}
 	}

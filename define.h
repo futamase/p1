@@ -9,7 +9,7 @@
 #define DebugOut2(fmt, ...)
 #endif
 
-#define Output(s) fprintf(outfile, s)
+#define Output(s) fprintf(outfile, "%s\n", s)
 #define Output2(s, x) fprintf(outfile, s, x)
 
 

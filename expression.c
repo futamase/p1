@@ -9,7 +9,9 @@
 
 extern TOKEN tok;
 
-char expr_stack[100][255];
+#define MAX_CHAR 25
+
+char expr_stack[100][MAX_CHAR];
 int p_stack = -1;
 Node nodes[100];
 int node_count = -1;
@@ -19,7 +21,7 @@ void init_nodes(void){
     node_count = -1;
 
 		p_stack = -1;
-		memset(expr_stack, 0, sizeof(char) * 100 * 255);
+		memset(expr_stack, 0, sizeof(char) * 100 * MAX_CHAR);
     memset(nodes, 0, sizeof(Node) * 100);
 
 		// push $
@@ -34,7 +36,7 @@ static void push(char* s){
 }
 static void pop(){
   DebugOut("pop");
-  memset(expr_stack[p_stack], 0, sizeof(char) * 255);
+  memset(expr_stack[p_stack], 0, sizeof(char) * MAX_CHAR);
   p_stack--;
 }
 
@@ -42,9 +44,9 @@ static void erase(int index){
   int i;
   DebugOut("erase");
   for(i = 0; i < p_stack - index; i++){
-    memcpy(expr_stack[index+i], expr_stack[index+i+1], sizeof(char) * 255);
+    memcpy(expr_stack[index+i], expr_stack[index+i+1], sizeof(char) * MAX_CHAR);
   }
-  memset(expr_stack[p_stack], 0, sizeof(char) * 255);
+  memset(expr_stack[p_stack], 0, sizeof(char) * MAX_CHAR);
   p_stack--;
 
   DebugOut("-----------------------------this is after erase------------------------------------");
@@ -57,7 +59,7 @@ static void erase(int index){
 // a_i == a_j の時の(がきた時に使用する
 static void swap(int index){
   DebugOut("SWAPPING!");
-  char tmp[255];
+  char tmp[MAX_CHAR];
   strcpy(tmp, expr_stack[index]);
   strcpy(expr_stack[index], expr_stack[index+1]);
   strcpy(expr_stack[index+1], tmp);
@@ -83,7 +85,7 @@ void push_word(void){
 
 void push2nodes(char* op, char* left, char* right){
 
-  char r[255];
+  char r[MAX_CHAR];
   node_count ++;
   strcpy(nodes[node_count].op, op);
   strcpy(nodes[node_count].l, left);
@@ -94,7 +96,7 @@ void push2nodes(char* op, char* left, char* right){
 
   pop();pop();pop();
 
-  sprintf(r, "R%d", nodes[node_count].regi);
+  sprintf(r, "r%d", nodes[node_count].regi);
   push(r);
 }
 
@@ -122,13 +124,13 @@ enum Rank
 };
 
 int f(char* ch){
-	if(strcmp(ch, "+") == 0)	return 2;
-	else if(strcmp(ch, "-")==0)	return 2;
-	else if(strcmp(ch, "*")==0)	return 4;
-	else if(strcmp(ch,"div")==0)return 4;
-	else if(strcmp(ch, "!")==0)	return 6;
-	else if(strcmp(ch, "(")==0)	return 0;
-	else if(strcmp(ch, ")")==0)	return 11;
+	if(strcmp(ch, "+")     == 0)	  return 2;
+	else if(strcmp(ch, "-") ==0)	  return 2;
+	else if(strcmp(ch, "*") ==0)	  return 4;
+	else if(strcmp(ch,"div")==0)    return 4;
+	else if(strcmp(ch, "!") ==0)	  return 6;
+	else if(strcmp(ch, "(") ==0)	  return 0;
+	else if(strcmp(ch, ")") ==0)	  return 11;
 //	else if(strcmp(ch, "i")==0)	return 11;
 	else if(strcmp(ch, "$")==0)	return 0;
     else fprintf(stderr, "illegal operator\n"), exit(1);
