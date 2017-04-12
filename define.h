@@ -13,4 +13,12 @@
 #define Output2(s, x) fprintf(outfile, s, x)
 
 
+typedef struct Node
+{
+	char op[255];
+	char l[255];
+	char r[255];
+	int regi;
+}Node;
+
 #endif

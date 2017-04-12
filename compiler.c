@@ -8,6 +8,8 @@
 extern TOKEN tok;
 extern FILE *infile;
 extern FILE *outfile;
+extern Node nodes[100];
+extern int node_count;
 static int register_num;
 
 
@@ -114,6 +116,7 @@ void statement(void) {
 			do {
 				getsym();
 				statement();
+        flush_node();
 //				getsym();
 			} while (tok.value == SEMICOLON);
 
@@ -328,6 +331,7 @@ void outblock(void) {
 void condition(void){
 		DebugOut("condition start");
 	expression();	
+  flush_node();
 
 	if(tok.attr != SYMBOL)
 			error("illegal bunpou");
@@ -349,6 +353,7 @@ void condition(void){
 	}
 //	getsym();
 	expression();
+  flush_node();
 
 	DebugOut("condition end");
 }
