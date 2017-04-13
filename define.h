@@ -1,6 +1,8 @@
 #ifndef DEFINE_H
 #define DEFINE_H
 
+#include <getsym.h>
+
 #if 1
 #define DebugOut(s) printf("%s\n", s)
 #define DebugOut2(fmt, ...) printf(fmt, __VA_ARGS__)
@@ -10,7 +12,7 @@
 #endif
 
 #define Output(s) fprintf(outfile, "%s\n", s)
-#define Output2(s, x) fprintf(outfile, s, x)
+#define Output2(fmt, ...) fprintf(outfile, fmt, __VA_ARGS__)
 
 
 typedef struct Node
@@ -20,5 +22,12 @@ typedef struct Node
 	char r[255];
 	int regi;
 }Node;
+
+typedef struct MemData{
+  char name[MAXIDLEN];
+  int addr;
+  char hoge;
+}MemData;
+#define MAXADDR 65535
 
 #endif

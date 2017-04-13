@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <getsym.h>
 
 #include "define.h"
 #include "expression.h"
+#include "translation.h"
 
 extern TOKEN tok;
 extern FILE *infile;
@@ -11,36 +11,30 @@ extern FILE *outfile;
 extern Node nodes[100];
 extern int node_count;
 static int register_num;
+int var_count = 0; //グローバル化
 
 
-typedef struct MemData{
-  char name[MAXIDLEN];
-  int addr; 
-  char hoge;
-}MemData;
-#define MAXADDR 65535
+extern char data_labels[100][255];
+extern int label_counter;
+
 MemData vars[MAXADDR]; // 変数の上限はないのか
 
 void error(char* s);
 void outblock(void);
 void statement(void);
 //int expression(void);
+void condition(char*);
 
 void write(int _register_num){
   int i;
-  fprintf(stderr, "hoge\n");
+  DebugOut("Wow, Writing!");
   do{
-        DebugOut2("%s ", tok.charvalue);
     getsym();
-        DebugOut2("%s ", tok.charvalue);
     
     for(i = 0; i < MAXADDR; i++){
       if(strcmp(tok.charvalue, vars[i].name) == 0){
-  fprintf(stderr, "hoge %s\n", vars[i].name);
         Output2("load\tr0,%d\n", vars[i].addr);
-  fprintf(stderr, "hoge %s\n", vars[i].name);
         Output("writed r0");
-  fprintf(stderr, "hoge %s\n", vars[i].name);
         break;
       }
     }
@@ -57,15 +51,14 @@ void write(int _register_num){
     else
       break;
   }while(1);//(tok.value == COMMA);
-  DebugOut("hoge");
 
   Output("loadi\t r0, '\\n'");
   Output("writec\tr0");
 }
 
 void compiler(void) {
+  int i;
 	init_getsym();
-	init_nodes();
 
   register_num = -1;
 
@@ -101,6 +94,10 @@ void compiler(void) {
 		error("At the end, a period is required.");
 
 	fprintf(stderr, "Parsing Completed. No errors found.\n");
+
+
+  for(i = 0; i < label_counter;i++)
+    Output2("%s\n", data_labels[i]);
 }
 
 void error(char* s) {
@@ -128,7 +125,7 @@ void dosomething(char* _id){
 
 /* 式を読み込み、その式を計算し結果を表示するコードを生成する処理*/
 void statement(void) {
-	int i;
+	int i, j, k;
 
 	if(tok.attr == RWORD){
 		if (tok.value == BEGIN) {
@@ -137,7 +134,7 @@ void statement(void) {
 			do {
 				getsym();
 				statement();
-        flush_node();
+
 //				getsym();
 			} while (tok.value == SEMICOLON);
 
@@ -150,30 +147,41 @@ void statement(void) {
 		else if (tok.value == IF) {
 				DebugOut("if begin");
 //				getsym();
-				condition();
+				condition("elseLabel");
 				if(tok.attr != RWORD || tok.value != THEN)
 				{
 						DebugOut2("then attr and value is %d %s\n", tok.attr, tok.charvalue);
 						error("if neccesary then");
 				}
 
+        fprintf(outfile, "ifLabel:");
 				getsym();
 				statement();
 
+        
+        Output("jmp\tifExitLabel");
+
+        Output("elseLabel:");
 				if(tok.attr == RWORD && tok.value == ELSE){
 						DebugOut("else begin");
 						getsym();
 						statement();
 						DebugOut("else end");
 				}
+
+
+        Output("ifExitLabel:");
+
 				DebugOut("if end");
 		}
 		else if (tok.value == WHILE) {
 				DebugOut("while begin");
 //				getsym();
-				condition();
+        Output("whileLabel:");
+				condition("whileEndLabel");
 				if(tok.attr != RWORD || tok.value != DO)
 						error("while neccesary do");
+
 
 				DebugOut("DO!");
 				getsym();
@@ -181,6 +189,9 @@ void statement(void) {
 				getsym();
 
 				DebugOut("while end");
+
+        Output("jmp\t whileLabel");
+        Output("whileEndLabel:");
 		}
 		else if(tok.value == WRITE){
 				write(1);
@@ -204,13 +215,22 @@ void statement(void) {
 				if (tok.value != BECOMES)
 					error("illegal bunpou");
 
+        init_nodes();
         expression();
+        flush_stack();
+
+        for(j = 0; j < node_count; j++){
+          DebugOut2("after flush, this is node: %s %s %s\n", nodes[j].op, nodes[j].l, nodes[j].r);
+        }
+
+        Output2("store\tr%d, %d\n", translate(), vars[i].addr);
 
         //ここで演算結果が格納されているであろうスタックからポップ
         //"pop R0"とか
         //からの"store 変数番地"
 
 //        getsym();
+        break;
 			}
 		}
 
@@ -301,7 +321,6 @@ void expr(void){
 }
 
 void read_var(void) {
-	int var_count = 0; //後後グローバル化
 
 
 	// 変数読み込み
@@ -328,6 +347,9 @@ void read_var(void) {
 			break;
 	} while (1);
 
+  // SPを変数の数+1 にする
+//  Output2("loadi\tr4,%d\n", var_count);
+
   // セミコロン後１ワードを取り出す
   getsym();
 }
@@ -348,32 +370,57 @@ void outblock(void) {
 	}
 }
 
-void condition(void){
-		DebugOut("condition start");
-	expression();	
-  flush_node();
+void condition(char* label){
+  int r1,r2,sym;
+
+  DebugOut("condition start");
+	
+  init_nodes();
+  expression();	
+  flush_stack();
+
+  r1 = translate();
+  // 比較のために退避しておく
+  Output2("store\t r%d, %d\n", r1, MAXADDR-1);
 
 	if(tok.attr != SYMBOL)
 			error("illegal bunpou");
+
+  sym = tok.value;
 	
-	switch(tok.value){
+  init_nodes();
+	expression();
+  flush_stack();
+
+  r2 = translate();
+
+  // 愛を取り戻す
+  r1 = (r2 + 1) % 4;
+  Output2("load\t r%d, %d\n", r1, MAXADDR-1);
+
+  Output2("cmpr\tr%d, r%d\n", r1, r2);
+
+	switch(sym){
 		case EQL:
+        Output2("jnz\t%s\n", label);
 			break;
 		case NOTEQL:
+        Output2("jz\t%s\n", label);
 			break;
 		case LESSTHAN:
+        Output2("jge\t%s\n", label);
 			break;
 		case LESSEQL:
+        Output2("jgt\t%s\n", label);
 			break;
 		case GRTRTHAN:
+        Output2("jle\t%s\n", label);
 			break;
 		case GRTREQL:
-			DebugOut("Grater equal come");
+        Output2("jlt\t%s\n", label);
 			break;
 	}
-//	getsym();
-	expression();
-  flush_node();
-
 	DebugOut("condition end");
 }
+
+

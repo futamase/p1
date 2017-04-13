@@ -10,9 +10,10 @@ void compiler(void);
 
 int main(int argc, char*argv[])
 {
+  char outfile_name[255];
   fprintf(stderr, "Simple compiler: compile start.\n");
 
-  if(argc != 2){
+  if(argc < 2){
     fprintf(stderr, "USAGE: comp source-file-name\n");
     exit(1);
   }
@@ -20,7 +21,13 @@ int main(int argc, char*argv[])
     fprintf(stderr, "Source file %s can't open.\n", argv[1]);
     exit(1);
   }
-  if((outfile = fopen("a.asm", "w")) == NULL){
+
+  if(argc == 3)
+    strcpy(outfile_name, argv[2]);
+  else
+    strcpy(outfile_name, "a.asm");
+
+  if((outfile = fopen(outfile_name, "w")) == NULL){
     fprintf(stderr, "Object file creation failed.\n");
     exit(1);
   }

@@ -1,23 +1,27 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <getsym.h>
 
 #include "define.h"
 
 #define OutValue printf("the value is %d\n", tok.value)
 
 extern TOKEN tok;
+extern int var_count;
 
 #define MAX_CHAR 25
 
 char expr_stack[100][MAX_CHAR];
 int p_stack = -1;
 Node nodes[100];
+MemData regi_var[100];
+int regi_var_count = 0;
+
 int node_count = -1;
 int g_register = 0;
 
 void init_nodes(void){
+    g_register = 0;
     node_count = -1;
 
 		p_stack = -1;
@@ -83,9 +87,41 @@ void push_word(void){
 		DebugOut("push end");
 }
 
+int calculate_const_value(char* op, int left, int right){
+  char* ch = op;
+	if(strcmp(ch, "+")     == 0)	  return left + right;
+	else if(strcmp(ch, "-") ==0)	  return left - right;
+	else if(strcmp(ch, "*") ==0)	  return left * right;
+	else if(strcmp(ch,"div")==0)    return left / right;
+
+}
+
 void push2nodes(char* op, char* left, char* right){
 
   char r[MAX_CHAR];
+  // 定数計算用
+  int result, l_value, r_value;
+  int i;
+
+  DebugOut2("THIS IS DEBUG l is %s, r is %s\n", left, right);
+
+    for(i = p_stack; i>=0;i--){
+      DebugOut2("\tstack No.%d is %s\n", i, expr_stack[i]);
+    }
+
+
+
+  // コンパイル時に計算できる定数は先に計算する
+  l_value = atoi(left);
+  r_value = atoi(right);
+  if(l_value != 0 && r_value != 0){
+    result = calculate_const_value(op, l_value, r_value);
+    pop();pop();pop();
+    sprintf(r, "%d", result);
+    push(r);
+    return;
+  }
+
   node_count ++;
   strcpy(nodes[node_count].op, op);
   strcpy(nodes[node_count].l, left);
@@ -96,24 +132,48 @@ void push2nodes(char* op, char* left, char* right){
 
   pop();pop();pop();
 
-  sprintf(r, "r%d", nodes[node_count].regi);
+
+  for(i = p_stack; i>=0;i--){
+      DebugOut2("\tAfter pop, stack No.%d is %s\n", i, expr_stack[i]);
+  }
+
+  sprintf(r, "__r%d", nodes[node_count].regi);
   push(r);
+
+  // 追加した仮想のレジスタをメモリに追加するため
+  strcpy(regi_var[regi_var_count].name, r);
+  regi_var[regi_var_count].addr = var_count + regi_var_count;
+  regi_var_count++;
+
 }
 
-void flush_node(void){
+
+// ノードからアセンブリを出力（仮）
+void flush_node_impl(int index){
+}
+
+void flush_stack(void){
 		DebugOut("\tflush begin"); 
 		int i;
     for(i = p_stack; i>=0;i--){
       DebugOut2("\tstack No.%d is %s\n", i, expr_stack[i]);
+      // 最後に残った被演算子がレジスタでなく定数値だったらスタックに積む
+      if(expr_stack[i][0] != 'r' && strcmp(expr_stack[i], "$") != 0)
+      {
+        node_count ++;
+        strcpy(nodes[node_count].op, "");
+        strcpy(nodes[node_count].l, expr_stack[i]);
+        strcpy(nodes[node_count].r, "");
+        nodes[node_count].regi = g_register++;
+        DebugOut2("#########Now, I pushed this node: %s %s %s\n", nodes[node_count].op, nodes[node_count].l, nodes[node_count].r);
+      }
     }
 		DebugOut("\tflush end"); 
 
     DebugOut("\t and flush node begin");
     for(i = 0; i <= node_count; i++)
-      DebugOut2("\t\tnodes No.%d is : op %s, l %s, r %s\n", i, nodes[i].op, nodes[i].l, nodes[i].r);
+      DebugOut2("\t\tnodes No.%d is : op %s, l %s, r %s, regi %d\n", i, nodes[i].op, nodes[i].l, nodes[i].r, nodes[i].regi);
     DebugOut("\t and flush node end");
-
-    init_nodes();
 }
 
 enum Rank
@@ -186,6 +246,7 @@ static void ranking_function(char* a_j){
   DebugOut2("THIS IS RANKING FUNC ABOUT %s!\n", a_j);
   int i, j, rank;
   char* a_i;
+  int hogehoge;
 
   for(i = p_stack; i >= 0; i--){
       DebugOut2("\t stack No.%d is %s\n", i, expr_stack[i]);
@@ -198,12 +259,17 @@ static void ranking_function(char* a_j){
         if(rank == RankGreater){
           do{
             DebugOut2("compared %s and %s, op is greater!\n", a_i, a_j);
+            DebugOut2("\t\t\t---------------------- %s %s\n", expr_stack[i-1], expr_stack[i+1]);
+            for(hogehoge = p_stack; hogehoge>=0;hogehoge--){
+              DebugOut2("\t stack No.%d is %s\n", i, expr_stack[hogehoge]);
+            }
             push2nodes(a_i, expr_stack[i-1],expr_stack[i+1]);
 //            push(a_j);
 
             for(j = p_stack; j >= 0; j--){
               if(isOperator(expr_stack[j]))
               {
+                i = j;
                 a_i = expr_stack[j]; // 最終的に$が入る
                 rank = ranking(f(a_i), g(a_j));
                 break;
@@ -266,7 +332,7 @@ void expression(void){
 					// push
           push(tok.charvalue);          
 
-				}
+        }
 				else if(tok.attr == RWORD && tok.value == DIV){
             ranking_function(tok.charvalue);
 				}
