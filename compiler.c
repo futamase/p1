@@ -24,6 +24,7 @@ void outblock(void);
 void statement(void);
 //int expression(void);
 void condition(char*);
+void paramlist(void);
 
 void write(int _register_num){
   int i;
@@ -81,6 +82,11 @@ void compiler(void) {
 		error("After program name, a semicolon is needed.");
 
 	// 本体読み込み>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+	
+	// SP(r4) => 10000
+	Output("loadi\tr4,10000");
+
+
 	getsym();
 
 	// outblockの処理
@@ -231,11 +237,12 @@ void statement(void) {
         //からの"store 変数番地"
 
 //        getsym();
-        break;
+				return;
 			}
 		}
 
     // でもまだ関数実装できてない
+		paramlist();
 	}
 }
 
@@ -424,4 +431,9 @@ void condition(char* label){
 	DebugOut("condition end");
 }
 
+void paramlist(void){
+	getsym();
+	if(tok.value != LPAREN)
+		error("func must begin '('");
+}
 
