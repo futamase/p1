@@ -95,6 +95,7 @@ void compiler(void) {
 
 	fprintf(stderr, "Parsing Completed. No errors found.\n");
 
+  Output("halt");
 
   for(i = 0; i < label_counter;i++)
     Output2("%s\n", data_labels[i]);
