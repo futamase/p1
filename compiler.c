@@ -20,6 +20,7 @@ extern int label_counter;
 MemData vars[MAXADDR]; // 変数の上限はないのか
 
 void error(char* s);
+void inblock(void);
 void outblock(void);
 void statement(void);
 //int expression(void);
@@ -75,6 +76,7 @@ void compiler(void) {
 	if (tok.attr != IDENTIFIER)
 		error("Program identifier is needed.");
 
+
 	// プログラム名のあとのセミコロンを読み込み
 	getsym();
 
@@ -85,6 +87,8 @@ void compiler(void) {
 	
 	// SP(r4) => 10000
 	Output("loadi\tr4,10000");
+  // 関数が定義される可能性があるため、mainラベルに飛ぶ処理を書く
+  Output("jmp main");
 
 
 	getsym();
@@ -369,13 +373,87 @@ void outblock(void) {
 
 	if (tok.attr == RWORD && tok.value == PROCEDURE) {
 		// 関数定義の処理 実験２ではまだ
+    do{
+      DebugOut("procudure begin");
+      getsym();
+      // 関数名登録
+      Output2("%s:\n", tok.charvalue); 
+
+      getsym();
+      inblock();
+
+      if(tok.attr != SYMBOL || tok.value != SEMICOLON)
+        error("illegal bunpou in outblock");
+
+      getsym();
+      if(tok.value != PROCEDURE)
+        break;
+
+      DebugOut("procudure end");
+    }while(1);
 	}
-	else
-	{
-		// きっとstatementと信じて送り出す
-		DebugOut("statement begin");
-		statement();
-	}
+
+  // きっとstatementと信じて送り出す
+  // main部分が始まる
+  Output("main:");
+  DebugOut("statement begin");
+  statement();
+}
+
+void inblock(void){
+  int i;
+  int arg_count = 0;
+  if(tok.attr != SYMBOL || tok.value != LPAREN)
+    error("illegal bunpou in inblock");
+
+  getsym();
+  if(tok.attr == IDENTIFIER){
+    //
+    do{
+      // ここで引数に関する処理
+      //
+
+      // , を期待して読み込む
+      getsym();
+      if(tok.value != COMMA)
+        break;
+      getsym();
+    }while(1);
+  }
+
+  if(tok.value != RPAREN)
+    error("illegal bunpou");
+  
+  getsym();
+  if(tok.value != SEMICOLON)
+    error("illegal bunpou");
+
+
+  getsym();
+  // ローカル変数が定義されていたら読み込む
+  if(tok.attr == RWORD && tok.value == VAR){
+    do{
+      getsym();
+      // これは変数名
+
+
+      getsym();
+      if(tok.value == COMMA)
+        continue;
+      else if(tok.value == SEMICOLON)
+        break;
+      else
+        error("illegal bunpou");
+    }while(1);
+  }
+  
+  getsym();
+  statement();
+
+  for(i = 0; i < arg_count; i++){
+  }
+
+  getsym();
 }
 
 void condition(char* label){
@@ -432,8 +510,29 @@ void condition(char* label){
 }
 
 void paramlist(void){
+  int regi;
+
+
 	getsym();
 	if(tok.value != LPAREN)
 		error("func must begin '('");
-}
 
+  do{
+
+    init_nodes();
+    expression();
+    flush_stack();
+
+    regi = translate();
+    Output2("pop\tr%d\n", regi);
+
+    if(tok.value != COMMA){
+      break;
+    }
+
+    DebugOut2("|||||||||||||%s||||||||||||||\n", tok.charvalue);
+
+  }while(1);
+
+  DebugOut2("END OF PARAMLIST|||||||||||||%s||||||||||||||\n", tok.charvalue);
+}
