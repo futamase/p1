@@ -1,6 +1,6 @@
 CC = gcc
 OPTS = -O2 -Wall
-OBJS = main.o compiler.o expression.o translation.o
+OBJS = main.o compiler.o expression.o translation.o sym_table.o
 
 LIBDIR = $(HOME)/p1/lib
 INCDIR = $(HOME)/p1/include
@@ -17,3 +17,5 @@ expression.o: expression.c define.h
 	$(CC) expression.c -I $(INCDIR) -c $(OPTS)
 translation.o: translation.c define.h
 	$(CC) translation.c -I $(INCDIR) -c $(OPTS)
+sym_table.o: sym_table.c define.h
+	$(CC) sym_table.c -I $(INCDIR) -c $(OPTS)

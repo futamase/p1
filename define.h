@@ -23,16 +23,4 @@ typedef struct Node
 	int regi;
 }Node;
 
-typedef enum SymAttr{
-  Var, Local, Func
-}SymAttr; 
-
-typedef struct MemData{
-  char name[MAXIDLEN];
-  int addr;
-  SymAttr attr;
-}MemData;
-#define MAXADDR 65535
-
 #endif
-

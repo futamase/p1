@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "define.h"
+#include "sym_table.h"
 
 #define OutValue printf("the value is %d\n", tok.value)
 
@@ -14,7 +15,7 @@ extern int var_count;
 char expr_stack[100][MAX_CHAR];
 int p_stack = -1;
 Node nodes[100];
-MemData regi_var[100];
+SymData regi_var[100];
 int regi_var_count = 0;
 
 int node_count = -1;
@@ -152,13 +153,22 @@ void push2nodes(char* op, char* left, char* right){
 void flush_node_impl(int index){
 }
 
+int is_register(char* s){
+  if(strlen(s) < 3)
+    return 0;
+
+  if(s[0] == '_' && s[1] == '_')
+    return 1;
+  else return 0;
+}
+
 void flush_stack(void){
-		DebugOut("\tflush begin"); 
+		DebugOut("\tflush begin");
 		int i;
     for(i = p_stack; i>=0;i--){
       DebugOut2("\tstack No.%d is %s\n", i, expr_stack[i]);
       // 最後に残った被演算子がレジスタでなく定数値だったらスタックに積む
-      if(expr_stack[i][0] != 'r' && strcmp(expr_stack[i], "$") != 0)
+      if(!is_register(expr_stack[i]) && strcmp(expr_stack[i], "$") != 0)
       {
         node_count ++;
         strcpy(nodes[node_count].op, "");
@@ -168,7 +178,7 @@ void flush_stack(void){
         DebugOut2("#########Now, I pushed this node: %s %s %s\n", nodes[node_count].op, nodes[node_count].l, nodes[node_count].r);
       }
     }
-		DebugOut("\tflush end"); 
+		DebugOut("\tflush end");
 
     DebugOut("\t and flush node begin");
     for(i = 0; i <= node_count; i++)
@@ -223,7 +233,7 @@ int isOperator(char* s)
     if(
       (strcmp(s, "+") == 0)	||
       (strcmp(s, "-")==0)   ||
-      (strcmp(s, "*")==0)   ||  
+      (strcmp(s, "*")==0)   ||
       (strcmp(s,"div")==0)  ||
       (strcmp(s, "!")==0)	  ||
       (strcmp(s, "(")==0)	  ||
@@ -304,13 +314,13 @@ static void ranking_function(char* a_j){
           DebugOut2("compared %s and %s, op is equal!\n", a_i, a_j);
           if(strcmp(a_i, "(") == 0)
           {
-            swap(i); pop(); 
+            swap(i); pop();
           }
           else if(strcmp(a_i, "$") == 0)
             break;
           break;
         }
-    }    
+    }
     else
       continue;
   }
@@ -319,7 +329,7 @@ static void ranking_function(char* a_j){
 void term(void);
 void factor(void);
 
-void expression(void){
+void expression2(void){
 		DebugOut("expr begin");
 		do{
 				getsym();
@@ -328,10 +338,8 @@ void expression(void){
 				//		fprintf(stderr, "undeclared var\n");
 					){
 					DebugOut2("\t %d %d %s\n", tok.attr, tok.value, tok.charvalue);
-
 					// push
-          push(tok.charvalue);          
-
+          push(tok.charvalue);
         }
 				else if(tok.attr == RWORD && tok.value == DIV){
             ranking_function(tok.charvalue);
@@ -360,82 +368,86 @@ EXIT:
 		DebugOut("expr end");
 }
 
-void expression2(void){
-//  do{
-//    getsym();
-//    term();
-//
-//	if(tok.attr == SYMBOL && tok.value == PLUS){
-//			DebugOut("PLUS!");
-//						nodes[node_count].op = PLUS;
-//	}
-//	else if(tok.attr == SYMBOL && tok.value == MINUS){
-//			DebugOut("MINUS!");
-//						nodes[node_count].op = MINUS;
-//	}
-//	else{
-//			if(tok.attr == SYMBOL && tok.value == RPAREN) //temp
-//			{}//temp
-//			else//temp
-//		  flush_node();
-//			break;
-//	}
-//  }while(1);
-//  DebugOut("expr end");
+void expression(void){
+ do{
+   getsym();
+   term();
+
+	if(tok.attr == SYMBOL && tok.value == PLUS){
+			DebugOut("PLUS!");
+      ranking_function(tok.charvalue);
+	}
+	else if(tok.attr == SYMBOL && tok.value == MINUS){
+			DebugOut("MINUS!");
+      ranking_function(tok.charvalue);
+	}
+	else{
+			// if(tok.attr == SYMBOL && tok.value == RPAREN) //temp
+			// {}//temp
+			// else//temp
+		  // flush_node();
+			break;
+	}
+ }while(1);
+
+ ranking_function("$");
+ DebugOut("expr end");
 }
 
 void term(void){
-//
-//		do{
-//				DebugOut2("value is %d\n", tok.value);
-//				factor();
-//				getsym();
-//				if(tok.attr == RWORD && tok.value == DIV){
-//						//dosomething
-//						DebugOut("div come");
-//						nodes[node_count].op = DIV;
-//
-//						getsym();
-//				}
-//				else if(tok.attr == SYMBOL&& tok.value == TIMES) {
-//						//dosomething
-//
-//						DebugOut("times come");
-//						nodes[node_count].op = TIMES;
-//						getsym();
-//				}
-//				else{
-//						break;
-//				}
-//		}while(1);
+  do{
+    DebugOut2("value is %d\n", tok.value);
+    factor();
+    getsym();
+
+    if(tok.attr == RWORD && tok.value == DIV){
+      //dosomething
+      DebugOut("div come");
+      ranking_function(tok.charvalue);
+      getsym();
+    }
+    else if(tok.attr == SYMBOL&& tok.value == TIMES) {
+      //dosomething
+      DebugOut("times come");
+      ranking_function(tok.charvalue);
+      getsym();
+    }
+    else{
+      break;
+    }
+  }while(1);
 }
 
 void factor(void){
 		  DebugOut2("factor begin and value is %s\n", tok.charvalue);
-	
-
   // 単項演算子-の時
   if(tok.attr == SYMBOL && tok.value == MINUS){
 		  getsym();
-//		  nodes[node_count].l[0] = '-';
+      ranking_function("!");
   }
 
-
   if(tok.attr == IDENTIFIER){
-		  push_word();
+		  push(tok.charvalue);
 		  DebugOut2("%s\n", tok.charvalue);
   }
   else if(tok.attr == NUMBER){
-		  push_word();
+		  push(tok.charvalue);
 		  DebugOut2("number come and the value is %d\n", tok.value);
   }
   else if(tok.attr == SYMBOL && tok.value == LPAREN){
-//      getsym();
+      ranking_function(tok.charvalue);
+      DebugOut("LPAREN is come");
       expression();
 
       if(tok.value != RPAREN)
         fprintf(stderr, "illegal bunpou\n"), exit(1);
+      DebugOut("RPAREN is come");
   }
+}
 
-//  getsym();
+void output_nodes(void){
+  int i;
+  for(i = 0; i <= node_count; i++)
+    DebugOut2("node No.%d is: op=%s, l=%s, r=%s, regi=%d\n",
+      i, nodes[i].op, nodes[i].l, nodes[i].r, nodes[i].regi);
 }

@@ -4,4 +4,7 @@
 void init_nodes(void);
 void expression(void);
 
+// for debug
+void output_nodes(void);
+
 #endif

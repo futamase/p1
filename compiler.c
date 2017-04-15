@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "define.h"
+#include "sym_table.h"
 #include "expression.h"
 #include "translation.h"
 
@@ -11,43 +12,79 @@ extern FILE *outfile;
 extern Node nodes[100];
 extern int node_count;
 static int register_num;
-int var_count = 0; //グローバル化
 
 
-extern char data_labels[100][255];
+extern SymData data_labels[100];
 extern int label_counter;
 
-MemData vars[MAXADDR]; // 変数の上限はないのか
 
-void error(char* s);
+static SymData symbol;
+
+void error(char* s) {
+	fprintf(stderr, "%s\n", s);
+	exit(1);
+}
+
 void inblock(void);
 void outblock(void);
 void statement(void);
 //int expression(void);
 void condition(char*);
-void paramlist(void);
+void paramlist(char* label);
 
-void write(int _register_num){
+// pos dest のpos番目からコピー
+void deep_copy_node(Node* dest, Node* src, int pos, size_t num){
+    int i;
+
+    for(i = 0; i < num; i++){
+        strcpy(dest[pos+i].op, src[i].op);
+        strcpy(dest[pos+i].l, src[i].l);
+        strcpy(dest[pos+i].r, src[i].r);
+        dest[pos+i].regi = src[i].regi;
+    }
+}
+// pos dest のpos番目からコピー
+void deep_copy_node2(Node* dest, Node* src, int pos, size_t num){
+    int i;
+    DebugOut2("copy %d %d\n", pos, num);
+
+    for(i = 0; i < num; i++){
+        strcpy(dest[i].op, src[pos+i].op);
+        strcpy(dest[i].l, src[pos+i].l);
+        strcpy(dest[i].r, src[pos+i].r);
+        dest[i].regi = src[pos+i].regi;
+    }
+}
+
+
+
+
+
+
+void write(void){
   int i;
+  int write_space_flag = 0;
   DebugOut("Wow, Writing!");
+
+
   do{
     getsym();
-    
-    for(i = 0; i < MAXADDR; i++){
-      if(strcmp(tok.charvalue, vars[i].name) == 0){
-        Output2("load\tr0,%d\n", vars[i].addr);
-        Output("writed r0");
-        break;
-      }
-    }
 
-//    Output("writed\t");
-//    DebugOut2("write %s\n", tok.charvalue, tok.attr);
-//    Output2(" r%d", tok.value);
+    if(get_symbol(tok.charvalue, &symbol)){
+        Output2("load\tr0,%d%s\n", symbol.addr, additional_op[symbol.attr]);
+        Output("writed r0");
+    }
+    else
+      error("var was'nt found");
+
     getsym();
     if(tok.value == COMMA){
-      Output("loadi\tr0, ' '");
-      Output("writec\tr0");
+      if(!write_space_flag){
+        // スペースのロードは一回
+        Output("loadi\tr1, ' '");
+        write_space_flag = 1;
+      }
+      Output("writec\tr1");
       continue;
     }
     else
@@ -84,7 +121,7 @@ void compiler(void) {
 		error("After program name, a semicolon is needed.");
 
 	// 本体読み込み>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-	
+
 	// SP(r4) => 10000
 	Output("loadi\tr4,10000");
   // 関数が定義される可能性があるため、mainラベルに飛ぶ処理を書く
@@ -108,30 +145,7 @@ void compiler(void) {
   Output("halt");
 
   for(i = 0; i < label_counter;i++)
-    Output2("%s\n", data_labels[i]);
-}
-
-void error(char* s) {
-	fprintf(stderr, "%s\n", s);
-	exit(1);
-}
-
-// 変数に対する代入か、関数呼び出しか
-void dosomething(char* _id){
-  char* id;
-  id = _id;
-
-  getsym();
-
-  if(tok.value == BECOMES){
-    getsym();
-//    printf("%s is substituted %d", id, expression());
-  }
-  else if(tok.value == LPAREN){
-  }
-  else{
-    error("illegal bunpou");
-  }
+    Output2("%s\n", data_labels[i].name);
 }
 
 /* 式を読み込み、その式を計算し結果を表示するコードを生成する処理*/
@@ -169,7 +183,7 @@ void statement(void) {
 				getsym();
 				statement();
 
-        
+
         Output("jmp\tifExitLabel");
 
         Output("elseLabel:");
@@ -205,7 +219,7 @@ void statement(void) {
         Output("whileEndLabel:");
 		}
 		else if(tok.value == WRITE){
-				write(1);
+				write();
 		}
 	}
 	else{
@@ -215,149 +229,53 @@ void statement(void) {
 
 		DebugOut("identifier begin");
 
-		// この調査で見つからなかったら関数名
-		for (i = 0; i < MAXADDR; i++) {
-			if (strcmp(tok.charvalue, vars[i].name) == 0) {
-				// 変数に対する処理
-				// read := 
-				DebugOut("var is found");
-				getsym();
+    if(!get_symbol(tok.charvalue, &symbol))
+      error("identifier was'nt found");
 
-				if (tok.value != BECOMES)
-					error("illegal bunpou");
+    if(symbol.attr == Func){
+      // でもまだ関数実装できてない
+      paramlist(symbol.name);
+    }
+    else{
+      DebugOut("var is found");
+      getsym();
 
-        init_nodes();
-        expression();
-        flush_stack();
+      if (tok.value != BECOMES)
+      error("illegal bunpou");
 
-        for(j = 0; j < node_count; j++){
-          DebugOut2("after flush, this is node: %s %s %s\n", nodes[j].op, nodes[j].l, nodes[j].r);
-        }
+      init_nodes();
+      expression();
+      flush_stack();
 
-        Output2("store\tr%d, %d\n", translate(), vars[i].addr);
+      for(j = 0; j < node_count; j++){
+        DebugOut2("after flush, this is node: %s %s %s\n", nodes[j].op, nodes[j].l, nodes[j].r);
+      }
 
-        //ここで演算結果が格納されているであろうスタックからポップ
-        //"pop R0"とか
-        //からの"store 変数番地"
-
-//        getsym();
-				return;
-			}
-		}
-
-    // でもまだ関数実装できてない
-		paramlist();
+      Output2("store\tr%d, %d%s\n", translate(), symbol.addr, additional_op[symbol.attr]);
+    }
 	}
 }
 
-// 単純な2項式を処理する
-//int expression(void) {
-//	int left_attr;
-//	int left_value; // 定数値か変数
-//	int right_attr;
-//	int right_value;
-//
-//	int operator_ = 0;
-//
-//	if (tok.attr != NUMBER && tok.attr != IDENTIFIER)
-//		error("uwa-");
-//
-//	left_attr = tok.attr;
-//	left_value = tok.value;
-//	printf("the value is:%d\n", tok.value);
-//
-//	getsym();
-//
-//  if(tok.value == SEMICOLON)
-//    return left_value;
-//
-//	if (tok.attr != SYMBOL)
-//		printf("After number, symbol is needed %d\n", tok.attr);
-//
-//	// 演算子ごとに処理
-//	printf("the manu is:%c\n", tok.value);
-//	operator_ = tok.value;
-//	getsym();
-//	// num ○  num だけ
-//	if (tok.attr != NUMBER && tok.attr != IDENTIFIER)
-//		error("num hoge num is only accepted");
-//
-//	right_attr = tok.attr;
-//	right_value = tok.value;
-//
-//	switch (operator_) {
-//	case PLUS:
-//	{
-//		printf("the result is: %d\n", left_value + right_value);
-//    return left_value + right_value;
-//		break;
-//	}
-//	case MINUS:
-//	{
-//		printf("the result is: %d\n", left_value - right_value);
-//    return left_value - right_value;
-//		break;
-//	}
-//	case TIMES:
-//	{
-//		printf("the result is: %d\n", left_value * right_value);
-//    return left_value * right_value;
-//		break;
-//	}
-//	case DIV:
-//	{
-//		printf("the result is: %d\n", left_value / right_value);
-//    return left_value / right_value;
-//		break;
-//	}
-//	default:
-//		break;
-//	}
-//
-//  return 0;
-//}
-
-void expr(void){
-  switch(tok.attr){
-    case NUMBER:
-      {
-        break;
-      }
-    case IDENTIFIER:
-      {
-        break;
-      }
-    default:
-      error("illegal bunpou");
-  }
-}
-
+// グローバル変数読み込み
 void read_var(void) {
-
-
-	// 変数読み込み
 	do{
 		getsym();
 		if (tok.attr != IDENTIFIER)
 			error("not var");
 
-		// 変数名とインデックスのマップが欲しいか
-		strcpy(vars[var_count].name, tok.charvalue);
-		vars[var_count].addr = var_count;
-
-		DebugOut2("var %d is: %s\n", vars[var_count].addr, vars[var_count].name);
-
-		var_count++;
+    add_symbol(tok.charvalue, Var);
 
 		getsym();
 		if (tok.value != COMMA && tok.value != SEMICOLON)
 			error("need comma or semicolon");
 
-		if (tok.value == COMMA)	
+		if (tok.value == COMMA)
 			continue;
-		else					          
+		else
 			break;
 	} while (1);
+
+  flush_all_symbols();
 
   // SPを変数の数+1 にする
 //  Output2("loadi\tr4,%d\n", var_count);
@@ -368,6 +286,7 @@ void read_var(void) {
 
 // 変数宣言の処理
 void outblock(void) {
+  int i;
 	if (tok.attr == RWORD && tok.value == VAR)
 		read_var();
 
@@ -375,19 +294,30 @@ void outblock(void) {
 		// 関数定義の処理 実験２ではまだ
     do{
       DebugOut("procudure begin");
-      getsym();
-      // 関数名登録
-      Output2("%s:\n", tok.charvalue); 
+
+      clear_local_vars();
 
       getsym();
+      // 関数名登録
+      Output2("%s:\n", tok.charvalue);
+      add_symbol(tok.charvalue, Func);
+      Output("push\t r5\nloadr\t r5, r4\naddi\t r5, 1");
+
+      getsym();
+DebugOut("inblock begin");
       inblock();
+DebugOut("inblock end");
+
+      Output("pop\t r5\nreturn");
 
       if(tok.attr != SYMBOL || tok.value != SEMICOLON)
         error("illegal bunpou in outblock");
 
+
       getsym();
       if(tok.value != PROCEDURE)
         break;
+
 
       DebugOut("procudure end");
     }while(1);
@@ -402,7 +332,7 @@ void outblock(void) {
 
 void inblock(void){
   int i;
-  int arg_count = 0;
+  int arg_count = 0, var_ = 0;
   if(tok.attr != SYMBOL || tok.value != LPAREN)
     error("illegal bunpou in inblock");
 
@@ -412,6 +342,9 @@ void inblock(void){
     do{
       // ここで引数に関する処理
       //
+//      DebugOut2("arg %d: is %s\n", local_var_count++, tok.charvalue);
+      add_symbol(tok.charvalue, Arg);
+      arg_count++;
 
       // , を期待して読み込む
       getsym();
@@ -421,9 +354,10 @@ void inblock(void){
     }while(1);
   }
 
+
   if(tok.value != RPAREN)
     error("illegal bunpou");
-  
+
   getsym();
   if(tok.value != SEMICOLON)
     error("illegal bunpou");
@@ -435,7 +369,9 @@ void inblock(void){
     do{
       getsym();
       // これは変数名
-
+//      DebugOut2("local_var %d: is %s\n", local_var_count++, tok.charvalue);
+      add_symbol(tok.charvalue, Local);
+      var_++;
 
       getsym();
       if(tok.value == COMMA)
@@ -446,12 +382,17 @@ void inblock(void){
         error("illegal bunpou");
     }while(1);
   }
-  
+
+Output2("addi\tr4, %d\n", var_);
+
+
   getsym();
   statement();
 
   for(i = 0; i < arg_count; i++){
   }
+
+  Output2("subi\tr4, %d\n", var_);
 
   getsym();
 }
@@ -460,9 +401,9 @@ void condition(char* label){
   int r1,r2,sym;
 
   DebugOut("condition start");
-	
+
   init_nodes();
-  expression();	
+  expression();
   flush_stack();
 
   r1 = translate();
@@ -473,7 +414,7 @@ void condition(char* label){
 			error("illegal bunpou");
 
   sym = tok.value;
-	
+
   init_nodes();
 	expression();
   flush_stack();
@@ -509,22 +450,61 @@ void condition(char* label){
 	DebugOut("condition end");
 }
 
-void paramlist(void){
-  int regi;
 
+int sum_of_node_count_storage(int* storage, int arg_num){
+  int i;
+  int sum = 0;
+  for(i = 0; i < arg_num; i++){
+      sum += storage[i];
+  }
+
+  return sum;
+}
+
+void paramlist(char* label){
+  int regi;
+  int i, j;
+  Node* nodes_storage;
+  int* node_count_storage;
+  int arg_num = 0;
+
+  nodes_storage = calloc(1, sizeof(Node));
+  node_count_storage = calloc(1, sizeof(int));
 
 	getsym();
 	if(tok.value != LPAREN)
 		error("func must begin '('");
 
   do{
-
     init_nodes();
     expression();
     flush_stack();
 
-    regi = translate();
-    Output2("pop\tr%d\n", regi);
+    // void の可能性を考慮
+    // if(tok.attr == SYMBOL && tok.value == RPAREN)
+    //   break;
+
+
+    arg_num++;
+
+
+    DebugOut2("%d\n", (sum_of_node_count_storage(node_count_storage, arg_num-1) + node_count+1));
+    nodes_storage = (Node*)realloc(nodes_storage,
+      sizeof(Node) * (sum_of_node_count_storage(node_count_storage, arg_num-1) + node_count+1));
+        DebugOut("EEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
+    deep_copy_node(nodes_storage, nodes, sum_of_node_count_storage(node_count_storage, arg_num-1),
+        node_count+1);
+
+    node_count_storage = (int*)realloc(node_count_storage, sizeof(int) * arg_num);
+    node_count_storage[arg_num-1] = node_count + 1;
+    DebugOut2("%d\n", node_count_storage[arg_num-1]);
+//    memcpy(nodes_storage, nodes, sizeof(Node) * node_count+1);
+//    strcpy(nodes_storage[0].l, "hoge");
+    for(i = 0; i <= node_count; ++i)
+      DebugOut2("node No.%d is: op=%s, l=%s, r=%s, regi=%d\n", i, nodes_storage[i].op, nodes_storage[i].l, nodes_storage[i].r, nodes_storage[i].regi);
+
+//    regi = translate();
+ //   Output2("pop\tr%d\n", regi);
 
     if(tok.value != COMMA){
       break;
@@ -534,5 +514,36 @@ void paramlist(void){
 
   }while(1);
 
+  DebugOut("ほげーーーーーーーーー");
+
+    for(j = 0; j < sum_of_node_count_storage(node_count_storage, arg_num); ++j){
+      DebugOut2("node No.%d is: op=%s, l=%s, r=%s, regi=%d\n", j,
+      nodes_storage[j].op, nodes_storage[j].l, nodes_storage[j].r, nodes_storage[j].regi);
+    }
+  DebugOut2("%d\n", sum_of_node_count_storage(node_count_storage, arg_num-1));
+  DebugOut("ほげーーーーーーーーー");
+
+  for(i = arg_num-1; i >= 0; --i){
+    deep_copy_node2(nodes, nodes_storage, sum_of_node_count_storage(node_count_storage, i), node_count_storage[i]);
+    node_count = node_count_storage[i] -1;
+    for(j = 0; j <= node_count; ++j){
+      DebugOut("はげーーーーーーーーー");
+      DebugOut2("node No.%d is: op=%s, l=%s, r=%s, regi=%d\n", j,
+      nodes[j].op, nodes[j].l, nodes[j].r, nodes[j].regi);
+    }
+
+    regi = translate();
+   Output2("push\tr%d\n", regi);
+  }
+  free(nodes_storage);
+  free(node_count_storage);
+
+	if(tok.value != RPAREN)
+		error("func must end ')'");
+
+  Output2("call\t %s\n", label);
+  Output2("subi\t r4, %d\n", arg_num);
+
+    getsym();
   DebugOut2("END OF PARAMLIST|||||||||||||%s||||||||||||||\n", tok.charvalue);
 }
