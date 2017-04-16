@@ -39,20 +39,20 @@ void add_symbol(char* name, SymAttr attr){
 
 int get_symbol(char* name, SymData* data){
   int i;
-  for(i = 0; i < var_count; i++){
-    if(strcmp(vars[i].name, name) == 0){
-      strcpy(data->name, name);
-      data->attr = vars[i].attr;
-      data->addr = vars[i].addr;
-
-      return 1;
-    }
-  }
   for(i = 0; i < local_var_count; i++){
     if(strcmp(local_vars[i].name, name) == 0){
       strcpy(data->name, name);
       data->attr = local_vars[i].attr;
       data->addr = local_vars[i].addr;
+
+      return 1;
+    }
+  }
+  for(i = 0; i < var_count; i++){
+    if(strcmp(vars[i].name, name) == 0){
+      strcpy(data->name, name);
+      data->attr = vars[i].attr;
+      data->addr = vars[i].addr;
 
       return 1;
     }

@@ -256,8 +256,9 @@ void output_suitable_load_word(char* name, int regi_num){
   SymData symbol;
 
   if(get_symbol(name, &symbol)){
+    DebugOut2("serching success! %d, %d\n", symbol.addr, symbol.attr);
     if(symbol.attr == Arg)
-      Output2("load\tr%d, %d%s\n", regi_num, symbol.addr - 2, additional_op[symbol.attr]);
+      Output2("load\tr%d, %d%s\n", regi_num, symbol.addr, additional_op[symbol.attr]);
     else
       Output2("load\tr%d, %d%s\n", regi_num, symbol.addr, additional_op[symbol.attr]);
   }
@@ -293,9 +294,9 @@ void maesyori(void) {
 			nodes[i].regi = regi;
 		}
 		else if (isRegister(nodes[i].r)) {
-			regi = atoi(&nodes[i].r[3]); // __r〇ってなってるはず
-			change_register_count(nodes[i].regi, nodes[i].r);
-			nodes[i].regi = regi;
+//			regi = atoi(&nodes[i].r[3]); // __r〇ってなってるはず
+//			change_register_count(nodes[i].regi, nodes[i].r);
+//			nodes[i].regi = regi;
 		}
 	}
 
@@ -314,29 +315,32 @@ void hoge(char* _operator, char* _operand, int is_left, int _register) {
 		if (const_num < -32768 || 32768 < const_num) {
 			sprintf(data_labels[label_counter].name, "label%d: data %d", label_counter, const_num);
 
-			Output2("%s\tr%d, label%d\n", _operator, 
+			Output2("%s\tr%d, label%d\n", _operator,
 				is_left ? register_ : _register,
 				label_counter);
 			label_counter++;
 		}
 		else {
-			Output2("%si\tr%d, %d\n", _operator, 
-				is_left ? register_ : _register, 
+			Output2("%si\tr%d, %d\n", _operator,
+				is_left ? register_ : _register,
 				const_num);
 			register_state[register_] = 1;
 		}
 	}
-	// 1712
 	else {
 		DebugOut("こっち");
-		addr = get_var_addr(_operand);
-		if (isRegister(_operand))
+    if(get_symbol(_operand, &symbol)){
+      DebugOut2("serching success! %d, %d\n", symbol.addr, symbol.attr);
+        Output2("%s\tr%d, %d%s\n", _operator, is_left ? register_ : _register,
+        symbol.addr, additional_op[symbol.attr]);
+    }
+		else if (isRegister(_operand))
 		{
 			Output2("%sr\tr%d, r%d\n", _operator,
 				_register, atoi(&_operand[3]));
 		}
-//		DebugOut2("これがこれだ op:%s ,addr:%d\n", _operand, addr);
 		else {
+		addr = get_var_addr(_operand);
 			Output2("%s\tr%d, %d\n", _operator,
 				is_left ? register_ : _register,
 				addr);
@@ -363,12 +367,12 @@ void hoge(char* _operator, char* _operand, int is_left, int _register) {
 }
 
 int translate(void){
-  int i, j, left_var_flag;
+  int i, j, k, left_var_flag;
   int addr;
   int register_ = 0;
   int const_num;
   memset(register_state, 0, sizeof(int) * 4);
-  
+
   DebugOut("before change");
   maesyori();
   DebugOut("after change");
@@ -399,9 +403,10 @@ int translate(void){
 
   for (i = 0; i <= node_count; i++) {
 	  DebugOut2("op:%s l:%s r:%s\n", nodes[i].op, nodes[i].l, nodes[i].r);
-	  // どっちかにレジスタがあれば
+	  // 左にレジスタがあれば
 	  if (isRegister(nodes[i].l))
 	  {
+      register_ = nodes[i].regi;
 		  if (strcmp(nodes[i].op, "+") == 0) {
 			  hoge("add", nodes[i].r, 0, nodes[i].regi);
 		  }
@@ -417,26 +422,26 @@ int translate(void){
 		  }
 		  continue;
 	  }
-	  else if (isRegister(nodes[i].r)) {
-		  if (strcmp(nodes[i].op, "+") == 0) {
-			  hoge("add", nodes[i].l, 0, nodes[i].regi);
-		  }
-		  else if (strcmp(nodes[i].op, "-") == 0) {
-			  hoge("sub", nodes[i].l, 0, nodes[i].regi);
-		  }
-		  else if (strcmp(nodes[i].op, "*") == 0) {
-			  hoge("mul", nodes[i].l, 0, nodes[i].regi);
-		  }
-		  else if (strcmp(nodes[i].op, "div") == 0) {
-			  hoge("div", nodes[i].l, 0, nodes[i].regi);
-		  }
-		  continue;
-	  }
+	  // else if (isRegister(nodes[i].r)) {
+		//   if (strcmp(nodes[i].op, "+") == 0) {
+		// 	  hoge("add", nodes[i].l, 0, nodes[i].regi);
+		//   }
+		//   else if (strcmp(nodes[i].op, "-") == 0) {
+		// 	  hoge("sub", nodes[i].l, 0, nodes[i].regi);
+		//   }
+		//   else if (strcmp(nodes[i].op, "*") == 0) {
+		// 	  hoge("mul", nodes[i].l, 0, nodes[i].regi);
+		//   }
+		//   else if (strcmp(nodes[i].op, "div") == 0) {
+		// 	  hoge("div", nodes[i].l, 0, nodes[i].regi);
+		//   }
+		//   continue;
+	  // }
 
 
 	  // 左辺を出力
 	  hoge("load", nodes[i].l, 0, nodes[i].regi);
-
+    register_ = nodes[i].regi;
 
 
 	  if (strcmp(nodes[i].op, "+") == 0) {
@@ -455,12 +460,11 @@ int translate(void){
 //	  Output2("store\tr0, %d\n", var_count + nodes[i].regi);
   }
 
-  for (i = 0; i < 4; i++)
-	  register_state[i] = 0;
+  for (k = 0; k < 4; k++)
+	  register_state[k] = 0;
 //  Output2("load\tr0, %d\n", var_count + nodes[i-1].regi);
 
   DebugOut("HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH");
 
-  return atoi(&nodes[i-1 ].regi);//nodes[i-1].regi;
+  return register_;//atoi(&nodes[i-1].regi);//nodes[i-1].regi;
 }
-

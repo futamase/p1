@@ -17,6 +17,8 @@ static int register_num;
 extern SymData data_labels[100];
 extern int label_counter;
 
+static int while_label_num = 0;
+static int if_label_num = 0;
 
 static SymData symbol;
 
@@ -152,6 +154,10 @@ void compiler(void) {
 void statement(void) {
 	int i, j, k;
 
+	char label_buffer[255];
+	int if_label_counter_register = 0;
+	int while_label_counter_register = 0;
+
 	if(tok.attr == RWORD){
 		if (tok.value == BEGIN) {
 			DebugOut("scope begin");
@@ -170,43 +176,52 @@ void statement(void) {
 			DebugOut2("scope end and current value is %s\n", tok.charvalue);
 		}
 		else if (tok.value == IF) {
+				if_label_counter_register = if_label_num++;
 				DebugOut("if begin");
 //				getsym();
-				condition("elseLabel");
+				sprintf(label_buffer, "elseLabel%d", if_label_counter_register);
+				condition(label_buffer);
 				if(tok.attr != RWORD || tok.value != THEN)
 				{
 						DebugOut2("then attr and value is %d %s\n", tok.attr, tok.charvalue);
 						error("if neccesary then");
 				}
 
-        fprintf(outfile, "ifLabel:");
+				Output2("ifLabel%d:\n", if_label_counter_register);
 				getsym();
 				statement();
 
+        Output2("jmp\tifExitLabel%d\n", if_label_counter_register);
 
-        Output("jmp\tifExitLabel");
+				DebugOut2("RRRRRRRRRRRRRRRRRRRRRRRRRRR%sRRRRRRRRRRRRRRRRRRRRRRRRRRR\n", tok.charvalue);
 
-        Output("elseLabel:");
+				// 糞コードを極めていくスタイル
+				// if 部がbegin-endのときにelseが読み込まれなかった
+				if(tok.attr == RWORD && tok.value == END)
+					getsym();
+
+				Output2("elseLabel%d:\n", if_label_counter_register);
 				if(tok.attr == RWORD && tok.value == ELSE){
-						DebugOut("else begin");
-						getsym();
-						statement();
-						DebugOut("else end");
+					DebugOut("else begin");
+					getsym();
+
+					statement();
+					DebugOut("else end");
 				}
 
-
-        Output("ifExitLabel:");
-
+        Output2("ifExitLabel%d:\n", if_label_counter_register);
 				DebugOut("if end");
+
 		}
 		else if (tok.value == WHILE) {
+			while_label_counter_register = while_label_num++;
 				DebugOut("while begin");
 //				getsym();
-        Output("whileLabel:");
-				condition("whileEndLabel");
+        Output2("whileLabel%d:\n", while_label_counter_register);
+				sprintf(label_buffer, "whileEndLabel%d", while_label_counter_register);
+				condition(label_buffer);
 				if(tok.attr != RWORD || tok.value != DO)
 						error("while neccesary do");
-
 
 				DebugOut("DO!");
 				getsym();
@@ -215,8 +230,9 @@ void statement(void) {
 
 				DebugOut("while end");
 
-        Output("jmp\t whileLabel");
-        Output("whileEndLabel:");
+        Output2("jmp\t whileLabel%d\n", while_label_counter_register);
+        Output2("whileEndLabel%d:\n", while_label_counter_register);
+
 		}
 		else if(tok.value == WRITE){
 				write();
@@ -313,15 +329,15 @@ DebugOut("inblock end");
       if(tok.attr != SYMBOL || tok.value != SEMICOLON)
         error("illegal bunpou in outblock");
 
-
       getsym();
       if(tok.value != PROCEDURE)
         break;
 
-
       DebugOut("procudure end");
     }while(1);
 	}
+
+	clear_local_vars();
 
   // きっとstatementと信じて送り出す
   // main部分が始まる
@@ -344,6 +360,7 @@ void inblock(void){
       //
 //      DebugOut2("arg %d: is %s\n", local_var_count++, tok.charvalue);
       add_symbol(tok.charvalue, Arg);
+			DebugOut2("add ARG : %s\n", tok.charvalue);
       arg_count++;
 
       // , を期待して読み込む
