@@ -15,7 +15,7 @@ compiler.o: compiler.c define.h
 	$(CC) compiler.c -I $(INCDIR) -c $(OPTS) 
 expression.o: expression.c define.h
 	$(CC) expression.c -I $(INCDIR) -c $(OPTS)
-translation.o: translation.c define.h
+translation.o: translation.c define.h  sym_table.h
 	$(CC) translation.c -I $(INCDIR) -c $(OPTS)
-sym_table.o: sym_table.c define.h
+sym_table.o: sym_table.c define.h sym_table.h
 	$(CC) sym_table.c -I $(INCDIR) -c $(OPTS)

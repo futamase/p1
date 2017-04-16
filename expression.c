@@ -24,6 +24,7 @@ int g_register = 0;
 void init_nodes(void){
     g_register = 0;
     node_count = -1;
+	regi_var_count = 0;
 
 		p_stack = -1;
 		memset(expr_stack, 0, sizeof(char) * 100 * MAX_CHAR);
@@ -144,6 +145,9 @@ void push2nodes(char* op, char* left, char* right){
   // 追加した仮想のレジスタをメモリに追加するため
   strcpy(regi_var[regi_var_count].name, r);
   regi_var[regi_var_count].addr = var_count + regi_var_count;
+
+  DebugOut2("regi %d is %s\n", regi_var_count, 
+	  regi_var[regi_var_count].name);
   regi_var_count++;
 
 }

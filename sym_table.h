@@ -8,7 +8,7 @@ typedef enum SymAttr{
 }SymAttr;
 
 typedef struct SymData{
-  char name[MAXIDLEN];
+  char name[255];
   int addr;
   SymAttr attr;
 }SymData;
