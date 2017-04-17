@@ -2,6 +2,7 @@
 #define DEFINE_H
 
 #include <getsym.h>
+#include "output.h"
 
 #if 1
 #define DebugOut(s) printf("%s\n", s)
