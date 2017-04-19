@@ -7,6 +7,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h> // for isdigit()
+#include <vector>
+#include <iostream>
+
+struct Node4cpp{
+  std::string op;
+  std::string l;
+  std::string r;
+  int regi;
+  Node4cpp* next;
+  Node4cpp(const char* _op, const char* _l, const char* _r, int _regi)
+    : op(_op), l(_l), r(_r), regi(_regi)
+  {}
+  Node4cpp(const std::string& _op, const std::string& _l, const std::string& _r, int _regi)
+    : op(_op), l(_l), r(_r), regi(_regi)
+  {}
+};
 
 static const std::array<std::string, 3> additional_op {
   "", // Var
@@ -21,6 +37,9 @@ return  additional_op.at(index);
 
 extern FILE* outfile;
 extern Node nodes[100];
+static std::vector<Node4cpp> nodes_replaced;
+
+
 extern int node_count;
 extern SymData vars[MAXADDR];
 extern int var_count ;
@@ -36,7 +55,7 @@ static SymData symbol;
 SymData data_labels[100];
 int label_counter = 0;
 
-int isDigit(char* s){
+int isDigit(const char* s){
   int i = 0;
   DebugOut2("isDigit: %s\n", s);
   //終端文字か数字以外の文字が出てくるまでループ
@@ -46,7 +65,7 @@ int isDigit(char* s){
   return (s[i] == NULL);
 }
 
-int isVar(char* s){
+int isVar(const char* s){
   int i;
 
   for(i = 0; i <= var_count; i++){
@@ -66,7 +85,7 @@ int isVar(char* s){
   return 0;
 }
 
-int isRegister(char* s) {
+int isRegister(const char* s) {
 	int i;
   for(i = 0; i < regi_var_count; i++){
     if(strcmp(regi_var[i].name, s) == 0)
@@ -76,7 +95,7 @@ int isRegister(char* s) {
 }
 
 // -1 のときはレジスタ名とする
-int get_var_addr(char* var){
+int get_var_addr(const char* var){
   int i;
   DebugOut2("regi count is %d\n", regi_var_count);
   for(i = 0; i < MAXADDR; i++){
@@ -114,14 +133,48 @@ void change_register_count(int target, char* dest){
   }
 }
 
-static create_node(){
-  for(int i = 0; i <= node_count; i++){
-    for(int j = i+1; j <= node_count; j++){
-      if(nodes[i].regi == nodes[j].regi){
-        nodes[i].next = &nodes[j];
+static void create_node(){
+  for(int i = 0; i < nodes_replaced.size(); i++){
+    for(int j = i+1; j < nodes_replaced.size(); j++){
+      if(nodes_replaced[i].regi == nodes_replaced[j].regi){
+        nodes_replaced[i].next = &nodes_replaced[j];
       }
       else {
         break;
+      }
+    }
+  }
+}
+
+// 計算再利用のためのなんか
+static void optimize_node(){
+  int size = nodes_replaced.size();
+
+  for(int i = 0; i < size; i++){
+    for(int j = i+1; j < size; j++){
+      if(nodes_replaced.at(i).op == nodes_replaced.at(j).op &&
+        nodes_replaced.at(i).l == nodes_replaced.at(j).l &&
+        nodes_replaced.at(i).r == nodes_replaced.at(j).r)
+      {
+        int tmp_i = i+1;
+        int tmp_j = j+1;
+        while(tmp_i < size && tmp_j < size &&
+          nodes_replaced.at(tmp_i).r == nodes_replaced.at(tmp_j).r)
+        {
+          tmp_i++;
+          tmp_j++;
+        }
+
+        int regi = nodes_replaced.at(j).regi;
+
+        std::cout << tmp_i << " " << tmp_j << std::endl;
+        nodes_replaced.erase(nodes_replaced.begin()+j, nodes_replaced.begin()+tmp_j);
+
+        nodes_replaced.insert(nodes_replaced.begin()+(tmp_i),
+          Node4cpp("L", "r"+std::to_string(regi),
+                "r"+std::to_string(nodes_replaced.at(tmp_i-1).regi), 0));
+
+        size = nodes_replaced.size();
       }
     }
   }
@@ -293,7 +346,7 @@ int translate_(void){
   }
 }
 
-void output_suitable_load_word(char* name, int regi_num){
+void output_suitable_load_word(const char* name, int regi_num){
   int i;
   SymData symbol;
 
@@ -351,7 +404,13 @@ void maesyori(void) {
 	}
 }
 
-void hoge(char* _operator, char* _operand, int is_left, int _register) {
+void replace_nodes(){
+  for(int i = 0; i <= node_count; ++i){
+    nodes_replaced.emplace_back(nodes[i].op, nodes[i].l, nodes[i].r, nodes[i].regi);
+  }
+}
+
+void hoge(const char* _operator, const char* _operand, int is_left, int _register) {
 	int const_num, addr, register_;
 
 	register_ = get_unused_register();
@@ -428,12 +487,9 @@ int translate(void){
   int addr;
   int register_ = 0;
   int const_num;
-  // memset(register_state, 0, sizeof(int) * 4);
+  memset(register_state, 0, sizeof(int) * 4);
 
-  DebugOut("before change");
-  maesyori();
-  DebugOut("after change");
-  create_node();
+  nodes_replaced.clear();
 
   // 式が１つしかない場合
   if(strcmp(nodes[0].op, "") == 0){
@@ -460,60 +516,60 @@ int translate(void){
     return 0;
   }
 
-  for (i = 0; i <= node_count; i++) {
-	  DebugOut2("op:%s l:%s r:%s\n", nodes[i].op, nodes[i].l, nodes[i].r);
+
+  DebugOut("before change");
+  maesyori();
+  DebugOut("after change");
+
+  replace_nodes();
+
+  create_node();
+
+  optimize_node();
+
+  for (i = 0; i < nodes_replaced.size(); i++) {
+//	  DebugOut2("op:%s l:%s r:%s\n", nodes_replaced[i].op, nodes_replaced[i].l, nodes_replaced[i].r);
 	  // 左にレジスタがあれば
-	  if (isRegister(nodes[i].l))
+	  if (isRegister(nodes_replaced[i].l.c_str()))
 	  {
-      register_ = nodes[i].regi;
-		  if (strcmp(nodes[i].op, "+") == 0) {
-			  hoge("add", nodes[i].r, 0, nodes[i].regi);
+      register_ = nodes_replaced[i].regi;
+		  if ((nodes_replaced[i].op == "+")) {
+			  hoge("add", nodes_replaced[i].r.c_str(), 0, nodes_replaced[i].regi);
 		  }
-		  else if (strcmp(nodes[i].op, "-") == 0) {
-			  hoge("sub", nodes[i].r, 0, nodes[i].regi);
+		  else if ((nodes_replaced[i].op == "-")) {
+			  hoge("sub", nodes_replaced[i].r.c_str(), 0, nodes_replaced[i].regi);
 		  }
-		  else if (strcmp(nodes[i].op, "*") == 0) {
-			  hoge("mul", nodes[i].r, 0, nodes[i].regi);
+		  else if ((nodes_replaced[i].op == "*")) {
+			  hoge("mul", nodes_replaced[i].r.c_str(), 0, nodes_replaced[i].regi);
 		  }
-		  else if (strcmp(nodes[i].op, "div") == 0) {
-			  DebugOut("hoge-");
-			  hoge("div", nodes[i].r, 0, nodes[i].regi);
+		  else if ((nodes_replaced[i].op == "div")) {
+			  hoge("div", nodes_replaced[i].r.c_str(), 0, nodes_replaced[i].regi);
 		  }
 		  continue;
 	  }
-	  // else if (isRegister(nodes[i].r)) {
-		//   if (strcmp(nodes[i].op, "+") == 0) {
-		// 	  hoge("add", nodes[i].l, 0, nodes[i].regi);
-		//   }
-		//   else if (strcmp(nodes[i].op, "-") == 0) {
-		// 	  hoge("sub", nodes[i].l, 0, nodes[i].regi);
-		//   }
-		//   else if (strcmp(nodes[i].op, "*") == 0) {
-		// 	  hoge("mul", nodes[i].l, 0, nodes[i].regi);
-		//   }
-		//   else if (strcmp(nodes[i].op, "div") == 0) {
-		// 	  hoge("div", nodes[i].l, 0, nodes[i].regi);
-		//   }
-		//   continue;
-	  // }
+
+    // "L" 命令が入っていたら
+    if(nodes_replaced.at(i).op == "L"){
+      add_op("loadr", nodes_replaced.at(i).l, nodes_replaced.at(i).r);
+      continue;
+    }
 
 
 	  // 左辺を出力
-	  hoge("load", nodes[i].l, 0, nodes[i].regi);
-    register_ = nodes[i].regi;
+	  hoge("load", nodes_replaced[i].l.c_str(), 0, nodes_replaced[i].regi);
+    register_ = nodes_replaced[i].regi;
 
-
-	  if (strcmp(nodes[i].op, "+") == 0) {
-		  hoge("add", nodes[i].r, 0, nodes[i].regi);
+	  if ((nodes_replaced[i].op == "+")) {
+		  hoge("add", nodes_replaced[i].r.c_str(), 0, nodes_replaced[i].regi);
 	  }
-	  else if (strcmp(nodes[i].op, "-") == 0) {
-		  hoge("sub", nodes[i].r, 0, nodes[i].regi);
+	  else if ((nodes_replaced[i].op ==  "-")) {
+		  hoge("sub", nodes_replaced[i].r.c_str(), 0, nodes_replaced[i].regi);
 	  }
-	  else if (strcmp(nodes[i].op, "*") == 0) {
-		  hoge("mul", nodes[i].r, 0, nodes[i].regi);
+	  else if ((nodes_replaced[i].op == "*")) {
+		  hoge("mul", nodes_replaced[i].r.c_str(), 0, nodes_replaced[i].regi);
 	  }
-	  else if (strcmp(nodes[i].op, "div") == 0) {
-		  hoge("div", nodes[i].r, 0, nodes[i].regi);
+	  else if ((nodes_replaced[i].op == "div")) {
+		  hoge("div", nodes_replaced[i].r.c_str(), 0, nodes_replaced[i].regi);
 	  }
 
 //	  Output2("store\tr0, %d\n", var_count + nodes[i].regi);

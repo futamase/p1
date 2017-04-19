@@ -13,7 +13,8 @@ jnz	elseLabel0
 ifLabel0:
 load	r0, -3(BR)
 writed	r0
-writec	r2
+loadi	r1, ' '
+writec	r1
 load	r0, -4(BR)
 writed	r0
 loadi	r0, '\n'
@@ -55,7 +56,6 @@ subi	r4, 1
 pop	r5
 return
 main:
-loadi	r2, ' '
 loadi	r0, 5
 store	r0, 0
 push	r0

@@ -146,7 +146,7 @@ void push2nodes(char* op, char* left, char* right){
   strcpy(regi_var[regi_var_count].name, r);
   regi_var[regi_var_count].addr = var_count + regi_var_count;
 
-  DebugOut2("regi %d is %s\n", regi_var_count, 
+  DebugOut2("regi %d is %s\n", regi_var_count,
 	  regi_var[regi_var_count].name);
   regi_var_count++;
 
@@ -378,11 +378,9 @@ void expression(void){
    term();
 
 	if(tok.attr == SYMBOL && tok.value == PLUS){
-			DebugOut("PLUS!");
       ranking_function(tok.charvalue);
 	}
 	else if(tok.attr == SYMBOL && tok.value == MINUS){
-			DebugOut("MINUS!");
       ranking_function(tok.charvalue);
 	}
 	else{

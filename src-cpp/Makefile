@@ -11,7 +11,7 @@ compiler: $(OBJS)
 	$(CC) $(OBJS) -o compiler $(OPTS) -L$(LIBDIR) -lics
 main.o: main.cpp
 	$(CC) main.cpp -I $(INCDIR) -c $(OPTS)
-compiler.o: compiler.cpp define.h
+compiler.o: compiler.cpp define.h sym_table.h
 	$(CC) compiler.cpp -I $(INCDIR) -c $(OPTS)
 expression.o: expression.cpp define.h translation.h
 	$(CC) expression.cpp -I $(INCDIR) -c $(OPTS)

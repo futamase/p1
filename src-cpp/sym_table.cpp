@@ -9,7 +9,7 @@ int local_var_count = 0; //グローバル化
 int arg_count = 0;
 SymData local_vars[MAXADDR]; // 引数とローカル変数
 
-void add_symbol(char* name, SymAttr attr){
+void add_symbol(const char* name, SymAttr attr){
   switch (attr) {
     case Var:
       strcpy(vars[var_count].name, name);
@@ -38,7 +38,7 @@ void add_symbol(char* name, SymAttr attr){
   }
 }
 
-int get_symbol(char* name, SymData* data){
+int get_symbol(const char* name, SymData* data){
   int i;
   for(i = 0; i < local_var_count; i++){
     if(strcmp(local_vars[i].name, name) == 0){
